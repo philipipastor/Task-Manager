@@ -1,3 +1,4 @@
+import { useWorkspace } from "../context/WorkspaceContext";
 import { Button } from "../components/button";
 import { TeamList } from "../components/teamList";
 import { TeamDetails } from "../components/teamDetails";
@@ -18,6 +19,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 export function Teams() {
+  const { workspace } = useWorkspace()
   const [teams, setTeams] = useState<Teams[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
@@ -39,7 +41,7 @@ export function Teams() {
   useEffect(() => {
     async function fetchTeams() {
       try {
-        const response = await api.get<Teams[]>("/teams");
+        const response = await api.get<Teams[]>("/teams", { params: { workSpaceId: workspace!.id } });
 
         setTeams(response.data);
 
@@ -169,7 +171,7 @@ export function Teams() {
 
   async function handleTeamCreated() {
     try {
-      const response = await api.get<Teams[]>("/teams");
+      const response = await api.get<Teams[]>("/teams", { params: { workSpaceId: workspace!.id } });
 
       setTeams(response.data);
 
@@ -189,7 +191,7 @@ export function Teams() {
     try {
       const [membersResponse, teamsResponse] = await Promise.all([
         api.get<TeamMember[]>(`/members/${selectedTeamId}`),
-        api.get<Teams[]>("/teams")
+        api.get<Teams[]>("/teams", { params: { workSpaceId: workspace!.id } })
       ]);
 
       setMembers(membersResponse.data);

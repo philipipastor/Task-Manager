@@ -1,3 +1,4 @@
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useEffect, useState } from "react";
 import { AxiosError } from "axios";
 import { api } from "../services/api";
@@ -6,6 +7,7 @@ import type { Teams } from "../types/teams";
 import type { TeamMember } from "../types/teamsMember";
 
 export function useTaskOptions(isAdmin: boolean, selectedTeamId: string) {
+    const { workspace } = useWorkspace()
     const [userList, setUserList] = useState<User[]>([])
     const [teamList, setTeamList] = useState<Teams[]>([])
     const [loadingOptions, setLoadingOptions] = useState(true)
@@ -29,8 +31,8 @@ export function useTaskOptions(isAdmin: boolean, selectedTeamId: string) {
         async function loadOptions() {
             try {
                 const [usersResponse, teamsResponse] = await Promise.all([
-                    api.get<User[]>("/users"),
-                    api.get<Teams[]>("/teams")
+                    api.get<User[]>("/users", { params: { workSpaceId: workspace!.id } }),
+                    api.get<Teams[]>("/teams", { params: { workSpaceId: workspace!.id } })
                 ])
                 if (!cancelled) {
                     setUserList(usersResponse.data)
@@ -44,7 +46,7 @@ export function useTaskOptions(isAdmin: boolean, selectedTeamId: string) {
         }
         loadOptions()
         return () => { cancelled = true }
-    }, [])
+    }, [workspace?.id])
 
     useEffect(() => {
         if (!isAdmin || !selectedTeamId) return

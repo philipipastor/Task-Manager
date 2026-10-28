@@ -1,10 +1,14 @@
+import { useLocation } from "react-router";
+import { Invite } from "../pages/Invite";
 import { useAuth } from "../hook/useAuth";
 
 import { AuthRoutes } from "./AuthRoutes";
 import { TaskRoutes } from "./TaskRoutes";
+import { WorkspaceProvider } from "../context/WorkspaceContext";
 
 export function AppRoutes() {
     const { user, isLoading } = useAuth()
+    const { pathname } = useLocation()
 
     if(isLoading){
         return(
@@ -14,7 +18,9 @@ export function AppRoutes() {
         )
     }
 
-    return user ? <TaskRoutes/> : <AuthRoutes/>
+    if (pathname === "/invite" || pathname === "/convite") return <Invite />
+
+    return user ? <WorkspaceProvider key={user.id}><TaskRoutes/></WorkspaceProvider> : <AuthRoutes/>
 
 } 
 

@@ -6,6 +6,7 @@ import { teamRoutes } from "./teamRoutes";
 import { membersTeamRoutes } from "./membersTeamRoutes";
 import { taskRoutes } from "./tasksRoutes";
 import { taskHistoryRoutes } from "./taskHistoryRoutes";
+import { workSpaceRoutes } from "./workSpaceRoutes";
 
 const routes = Router();
 
@@ -15,5 +16,6 @@ routes.use("/teams", teamRoutes)
 routes.use("/members", membersTeamRoutes)
 routes.use("/tasks", taskRoutes)
 routes.use("/tasks/history", taskHistoryRoutes)
+routes.use("/workspace", workSpaceRoutes)
 
 export { routes }

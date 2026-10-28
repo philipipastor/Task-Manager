@@ -1,3 +1,4 @@
+import { requireWorkSpaceMember } from "@/utils/requireWorkSpaceMember";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "@/database/prisma";
@@ -13,38 +14,46 @@ class TaskController {
             priority: z.enum(["Alta", "Média", "Baixa"]),
             assigned_to: z.string().uuid(),
             team_id: z.string().uuid(),
+            workSpaceId: z.string().uuid()
         })
 
-        const { title, description, priority, assigned_to, team_id } = bodySchema.parse(request.body)
+        const { title, description, priority, assigned_to, team_id, workSpaceId } = bodySchema.parse(request.body)
 
         if (!request.user) {
             throw new appError("Usuário não autenticado", 401)
         }
 
-        if (!["Admin", "Member"].includes(request.user.role)) {
-            throw new appError("Acesso não autorizado", 403)
-        }
+        const member = await requireWorkSpaceMember(request.user.id, workSpaceId)
 
-        if (request.user.role === "Member" && assigned_to !== request.user.id) {
+        if (member.role === "Member" && assigned_to !== request.user.id) {
             throw new appError("Você só pode criar tarefas para si mesmo", 403)
         }
 
         const team = await prisma.teams.findUnique({ where: { id: team_id } })
 
-        if (!team || !team.active) {
-            throw new appError("Não é possível criar tarefas em uma equipe inexistente ou inativa", 409)
+        if (!team || team.workSpaceId !== workSpaceId) {
+            throw new appError("Equipe não encontrada neste espaço", 404)
+        }
+        if (!team.active) {
+            throw new appError("Não é possível criar tarefas em uma equipe inativa", 409)
+        }
+
+        const assignedMember = await prisma.workSpaceMember.findUnique({
+            where: { userId_workSpaceId: { userId: assigned_to, workSpaceId } }
+        })
+        if (!assignedMember) {
+            throw new appError("O responsável não pertence a esse espaço", 400)
         }
 
         const sameEquip = await prisma.teamsMembers.findFirst({
             where: { userId: assigned_to, teamId: team_id }
         })
-
         if (!sameEquip) {
-            throw new appError("O usuário não pertence á equipe informada", 400)
+            throw new appError("O responsável não pertence à equipe informada", 400)
         }
 
         const task = await prisma.tasks.create({
-            data: { title, description, priority, assignedTo: assigned_to, teamId: team_id },
+            data: { title, description, priority, assignedTo: assigned_to, teamId: team_id, workSpaceId },
             include: { team: { select: { name: true } }, user: { select: { name: true } } }
         })
 
@@ -53,32 +62,22 @@ class TaskController {
 
     async index(request: Request, response: Response) {
         const querySchema = z.object({
-            status: z.enum(["Pendente", "Em_progresso", "Concluído"]).optional(),
+            workSpaceId: z.string().uuid(),
+            status: z.enum(["Pendente", "Em_progresso", "Concluído"]).optional()
         })
 
-        const { status } = querySchema.parse(request.query)
+        const { workSpaceId, status } = querySchema.parse(request.query)
 
-        if (!request.user) {
-            throw new appError("Usuário não autenticado", 401)
-        }
-
-        if (!["Admin", "Member"].includes(request.user.role)) {
-            throw new appError("Acesso não autorizado", 403)
-        }
-
-        if (request.user.role === "Member") {
-            return response.json(await prisma.tasks.findMany({
-                where: { assignedTo: request.user.id, status },
-                include: { team: { select: { name: true } }, user: { select: { name: true } } }
-            }))
-        }
+        const member = await requireWorkSpaceMember(request.user?.id, workSpaceId)
 
         const tasks = await prisma.tasks.findMany({
-            where: { status },
+            where: {
+                workSpaceId, status,
+                assignedTo: member.role === "Member" ? member.userId : undefined
+            },
             include: { team: { select: { name: true } }, user: { select: { name: true } } }
-        });
-
-        response.json(tasks)
+        })
+        return response.json(tasks)
     }
 
     async update(request: Request, response: Response) {
@@ -103,11 +102,9 @@ class TaskController {
             throw new appError("Usuário não autenticado", 401)
         }
 
-        if (!["Admin", "Member"].includes(request.user.role)) {
-            throw new appError("Acesso não autorizado", 403)
-        }
+        const member = await requireWorkSpaceMember(request.user.id, task.workSpaceId)
 
-        if (request.user.role === "Member" && task.assignedTo !== request.user.id) {
+        if (member.role === "Member" && task.assignedTo !== request.user.id) {
             throw new appError("Essa tarefa não pertence a você", 403)
         }
 
@@ -136,19 +133,17 @@ class TaskController {
         const task = await prisma.tasks.findUnique({ where: { id } })
 
         if (!task) {
-            throw new appError("Tarefa não existe!", 400)
+            throw new appError("Tarefa não existe!", 404)
         }
 
         if (!request.user) {
             throw new appError("Usuário não autenticado", 401)
         }
 
-        if (!["Admin", "Member"].includes(request.user.role)) {
-            throw new appError("Acesso não autorizado", 403)
-        }
+        const member = await requireWorkSpaceMember(request.user.id, task.workSpaceId)
 
-        if (request.user.role === "Member" && task.assignedTo !== request.user.id) {
-            throw new appError("Essa tarefa não pertence a você", 400)
+        if (member.role === "Member" && task.assignedTo !== request.user.id) {
+            throw new appError("Essa tarefa não pertence a você", 403)
         }
 
         await prisma.tasks.delete({ where: { id } })
@@ -172,7 +167,9 @@ class TaskController {
             throw new appError("Tarefa não existe", 404)
         }
 
-        if (request.user?.role === "Member" && request.user?.id !== task.assignedTo) {
+        const member = await requireWorkSpaceMember(request.user?.id, task.workSpaceId)
+
+        if (member.role === "Member" && member.userId !== task.assignedTo) {
             throw new appError("Essa tarefa não pertence a você", 403)
         }
 

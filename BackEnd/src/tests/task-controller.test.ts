@@ -4,11 +4,12 @@ import { prisma } from "@/database/prisma"
 import request from "supertest"
 import { app } from "@/app"
 
-describe("teamsController", () => {
+describe("TaskController", () => {
     let team_id: string
     let token: string
     let user_id: string
     let task_id: string
+    let workSpaceId: string
 
     const email = `test-${randomUUID()}@example.com`
 
@@ -35,6 +36,11 @@ describe("teamsController", () => {
                 })
             }
 
+            if (workSpaceId) {
+                await prisma.workSpaceMember.deleteMany({ where: { workSpaceId } })
+                await prisma.workSpace.delete({ where: { id: workSpaceId } })
+            }
+
             if (user_id) {
                 await prisma.user.deleteMany({
                     where: { id: user_id }
@@ -58,11 +64,6 @@ describe("teamsController", () => {
 
         user_id = register.body.id
 
-        await prisma.user.update({
-            where: { id: user_id },
-            data: { role: "Admin" }
-        })
-
         const session = await request(app)
             .post("/session")
             .send({
@@ -74,12 +75,19 @@ describe("teamsController", () => {
 
         token = session.body.token
 
+        const workspace = await request(app).post("/workspace")
+            .set("Authorization", `Bearer ${token}`)
+            .send({ name: "Espaço de tarefas" })
+        expect(workspace.status).toBe(201)
+        workSpaceId = workspace.body.id
+
         const team = await request(app)
             .post("/teams")
             .set("Authorization", `Bearer ${token}`)
             .send({
                 name: "example",
-                description: "testando a description"
+                description: "testando a description",
+                workSpaceId
             })
 
         expect(team.status).toBe(201)
@@ -106,7 +114,9 @@ describe("teamsController", () => {
                 title: "meta",
                 description: "vender o sistema para 10 empresas",
                 assigned_to: user_id,
-                team_id
+                team_id,
+                priority: "Alta",
+                workSpaceId
             })
 
         expect(task.status).toBe(201)

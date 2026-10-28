@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { TeamsController } from "@/controller/teamsController";
 import { ensureAuthenticated } from "@/middleware/ensureAuthenticated";
-import { verifyUserAuthorization } from "@/middleware/verifyUserAutorization";
 
 const teamRoutes = Router()
 const teamsController = new TeamsController()
@@ -9,7 +8,6 @@ const teamsController = new TeamsController()
 teamRoutes.use(ensureAuthenticated)
 teamRoutes.get("/", teamsController.index)
 
-teamRoutes.use(verifyUserAuthorization(["Admin"]))
 teamRoutes.post("/", teamsController.create)
 teamRoutes.put("/:id", teamsController.update)
 teamRoutes.patch("/:id/desactive", teamsController.desactive)

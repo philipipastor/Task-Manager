@@ -1,3 +1,4 @@
+import { requireWorkSpaceMember } from "@/utils/requireWorkSpaceMember";
 import { Request, Response } from "express"
 import { z } from "zod"
 import { prisma } from "@/database/prisma"
@@ -15,10 +16,6 @@ class TaskHistoryController {
             throw new appError("Usuário não autenticado", 401)
         }
 
-        if (!["Admin", "Member"].includes(request.user.role)) {
-            throw new appError("Acesso não autorizado", 403)
-        }
-
         const task = await prisma.tasks.findUnique({
             where: { id }
         })
@@ -27,8 +24,10 @@ class TaskHistoryController {
             throw new appError("Tarefa não encontrada", 404)
         }
 
+        const member = await requireWorkSpaceMember(request.user.id, task.workSpaceId)
+
         if (
-            request.user.role === "Member" &&
+            member.role === "Member" &&
             task.assignedTo !== request.user.id
         ) {
             throw new appError("Essa tarefa não pertence a você", 403)

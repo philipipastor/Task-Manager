@@ -1,3 +1,4 @@
+import { requireWorkSpaceMember } from "@/utils/requireWorkSpaceMember";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "@/database/prisma";
@@ -7,37 +8,39 @@ class TeamsController {
     async create(request: Request, response: Response) {
         const bodySchema = z.object({
             name: z.string().min(3),
-            description: z.string().optional()
+            description: z.string().optional(),
+            workSpaceId: z.string().uuid()
         })
 
-        const { name, description } = bodySchema.parse(request.body)
+        const { name, description, workSpaceId } = bodySchema.parse(request.body)
 
-        const team = await prisma.teams.create({ data: { name, description } })
+        await requireWorkSpaceMember(request.user?.id, workSpaceId, true)
+
+        const team = await prisma.teams.create({ data: { name, description, workSpaceId } })
 
         response.status(201).json(team)
     }
 
     async index(request: Request, response: Response) {
-        if (!request.user) {
-            throw new appError("Usuário não autenticado", 401)
-        }
+        const querySchema = z.object({
+            workSpaceId: z.string().uuid()
+        })
 
-        if (!["Admin", "Member"].includes(request.user.role)) {
-            throw new appError("Acesso não autorizado", 403)
-        }
+        const { workSpaceId } = querySchema.parse(request.query)
 
-        if (request.user.role === "Member") {
-            const teams = await prisma.teams.findMany({
-                where: { active: true, teamsMembers: { some: { userId: request.user.id } } },
-                include: { _count: { select: { teamsMembers: true } } }
-            })
+        const member = await requireWorkSpaceMember(request.user?.id, workSpaceId)
 
-            response.json(teams)
-        }
-
-        const teams = await prisma.teams.findMany({ include: { _count: { select: { teamsMembers: true } } } })
-
-        response.json(teams)
+        const teams = await prisma.teams.findMany({
+            where: {
+                workSpaceId,
+                ...(member.role === "Member" ? {
+                    active: true,
+                    teamsMembers: { some: { userId: member.userId } }
+                } : {})
+            },
+            include: { _count: { select: { teamsMembers: true } } }
+        })
+        return response.json(teams)
     }
 
     async update(request: Request, response: Response) {
@@ -53,6 +56,14 @@ class TeamsController {
         const { id } = paramsSchema.parse(request.params)
         const { name, description } = bodySchema.parse(request.body)
 
+        const team = await prisma.teams.findUnique({ where: { id } })
+
+        if (!team) {
+            throw new appError("Equipe não encontrada", 404)
+        }
+
+        await requireWorkSpaceMember(request.user?.id, team.workSpaceId, true)
+
         const teams = await prisma.teams.update({ where: { id }, data: { name, description } })
 
         response.json(teams)
@@ -67,10 +78,11 @@ class TeamsController {
 
         const teams = await prisma.teams.findUnique({ where: { id } })
 
-
         if (!teams) {
             throw new appError("Equipe não encontrada", 404)
         }
+
+        await requireWorkSpaceMember(request.user?.id, teams.workSpaceId, true)
 
         if (!teams.active) {
             throw new appError("Equipe já está inativa", 400)
@@ -95,6 +107,8 @@ class TeamsController {
         if (!team) {
             throw new appError("Equipe não encontrada", 404)
         }
+
+        await requireWorkSpaceMember(request.user?.id, team.workSpaceId, true)
 
         if (team.active) {
             throw new appError("Equipe já está ativa", 409)

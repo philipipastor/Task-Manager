@@ -1,3 +1,4 @@
+import { requireWorkSpaceMember } from "@/utils/requireWorkSpaceMember";
 import { appError } from "@/utils/appError";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -12,17 +13,28 @@ class MembersTeamsController {
 
         const { user_id, team_id } = bodySchema.parse(request.body)
 
-        const user = await prisma.user.findUnique({ where: { id: user_id } })
         const team = await prisma.teams.findUnique({ where: { id: team_id } })
-        const memberExist = await prisma.teamsMembers.findFirst({ where: { userId: user_id, teamId: team_id } })
-
-        if (!user) {
-            throw new appError("usuário não existe", 404)
-        }
-
         if (!team) {
-            throw new appError("time não existe", 404)
+            throw new appError("Equipe não encontrada", 404)
         }
+
+        await requireWorkSpaceMember(request.user?.id, team.workSpaceId, true)
+
+        const invitedMember = await prisma.workSpaceMember.findUnique({
+            where: { userId_workSpaceId: { userId: user_id, workSpaceId: team.workSpaceId } }
+        })
+        if (!invitedMember) {
+            throw new appError("O usuário precisa pertencer ao espaço antes de entrar na equipe", 400)
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: user_id } })
+        if (!user) {
+            throw new appError("Usuário não encontrado", 404)
+        }
+
+        const memberExist = await prisma.teamsMembers.findFirst({
+            where: { userId: user_id, teamId: team_id }
+        })
 
         if (memberExist) {
             throw new appError("Usuário já pertence a equipe", 400)
@@ -50,6 +62,12 @@ class MembersTeamsController {
         const { user_id } = bodySchema.parse(request.body)
         const { team_id } = paramsSchema.parse(request.params)
 
+        const team = await prisma.teams.findUnique({ where: { id: team_id } })
+        if (!team) {
+            throw new appError("Equipe não encontrada", 404)
+        }
+        await requireWorkSpaceMember(request.user?.id, team.workSpaceId, true)
+
         const sameEquip = await prisma.teamsMembers.findFirst({ where: { userId: user_id, teamId: team_id } })
 
         if(!sameEquip){
@@ -67,6 +85,22 @@ class MembersTeamsController {
         })
 
         const { team_id } = paramsSchema.parse(request.params)
+
+        const team = await prisma.teams.findUnique({ where: { id: team_id } })
+        if (!team) {
+            throw new appError("Equipe não encontrada", 404)
+        }
+
+        const member = await requireWorkSpaceMember(request.user?.id, team.workSpaceId)
+
+        if (member.role === "Member") {
+            const teamMember = await prisma.teamsMembers.findFirst({
+                where: { userId: member.userId, teamId: team_id }
+            })
+            if (!teamMember) {
+                throw new appError("Você não pertence a essa equipe", 403)
+            }
+        }
 
         const members = await prisma.teamsMembers.findMany({
             where:

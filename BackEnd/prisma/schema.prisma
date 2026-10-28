@@ -19,31 +19,85 @@ enum Priority {
   Baixa
 }
 
-enum UserRole {
+enum workSpaceRole {
   Admin
   Member
 }
 
 model User {
-  id            String         @id @default(uuid())
-  name          String
-  email         String         @unique
-  password      String
-  role          UserRole       @default(Member)
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updateAt      DateTime       @updatedAt @map("updated_at")
-  teamsMembers  TeamsMembers[]
-  tasks         Tasks[]
-  taskHistories TaskHistory[]
+  id               String            @id @default(uuid())
+  name             String
+  email            String            @unique
+  password         String
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updateAt         DateTime          @updatedAt @map("updated_at")
+  teamsMembers     TeamsMembers[]
+  tasks            Tasks[]
+  taskHistories    TaskHistory[]
+  workSpaceMembers WorkSpaceMember[]
 
   @@map("users")
 }
 
+model WorkSpace {
+  id   String @id @default(uuid())
+  name String
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updateAt  DateTime @updatedAt @map("updated_at")
+
+  workSpaceMembers WorkSpaceMember[]
+  teams            Teams[]
+  tasks            Tasks[]
+  workSpaceInvites WorkSpaceInvite[]
+
+  @@map("workSpace")
+}
+
+model WorkSpaceMember {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  workSpaceId String    @map("workSpace_id")
+  workSpace   WorkSpace @relation(fields: [workSpaceId], references: [id])
+
+  role workSpaceRole @default(Member)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updateAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, workSpaceId])
+  @@map("workSpaceMember")
+}
+
+model WorkSpaceInvite {
+  id String @id @default(uuid())
+
+  email String
+
+  tokenHash String @unique
+
+  workSpaceId String    @map("workSpace_id")
+  workSpace   WorkSpace @relation(fields: [workSpaceId], references: [id])
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+
+  @@map("workSpaceInvite")
+}
+
 model Teams {
-  id           String         @id @default(uuid())
-  name         String
-  description  String?
-  active      Boolean  @default(true)
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  active      Boolean @default(true)
+
+  workSpaceId String    @map("workSpace_id")
+  workSpace   WorkSpace @relation(fields: [workSpaceId], references: [id])
+
   createdAt    DateTime       @default(now()) @map("created_at")
   updateAt     DateTime       @updatedAt @map("updated_at")
   teamsMembers TeamsMembers[]
@@ -61,7 +115,9 @@ model TeamsMembers {
   teamId String @map("team_id")
   team   Teams  @relation(fields: [teamId], references: [id])
 
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("teams_members")
 }
 
 model Tasks {
@@ -69,7 +125,7 @@ model Tasks {
   title       String
   description String
   status      Status   @default(Pendente)
-  priority    Priority 
+  priority    Priority
 
   assignedTo String @map("assigned_to")
   user       User   @relation(fields: [assignedTo], references: [id])
@@ -77,20 +133,25 @@ model Tasks {
   teamId String @map("team_id")
   team   Teams  @relation(fields: [teamId], references: [id])
 
+  workSpaceId String    @map("workSpace_id")
+  workSpace   WorkSpace @relation(fields: [workSpaceId], references: [id])
+
   createdAt     DateTime      @default(now()) @map("created_at")
   updateAt      DateTime      @updatedAt @map("updated_at")
   taskHistories TaskHistory[]
+
+  @@map("tasks")
 }
 
 model TaskHistory {
-  id         String      @id @default(uuid())
+  id String @id @default(uuid())
 
-  taskId     String      @map("task_id")
-  task       Tasks    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String @map("task_id")
+  task   Tasks  @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  changedBy  String      @map("change_by")
-  user       User     @relation(fields: [changedBy], references: [id])
-  
+  changedBy String @map("change_by")
+  user      User   @relation(fields: [changedBy], references: [id])
+
   old_status Status
   new_status Status
   changed_at DateTime @default(now())

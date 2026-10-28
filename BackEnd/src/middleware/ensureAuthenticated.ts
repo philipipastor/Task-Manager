@@ -3,11 +3,6 @@ import { appError } from "@/utils/appError";
 import { verify } from "jsonwebtoken";
 import { authConfig } from "@/configs/auth";
 
-interface TokenPlayload {
-    role: string,
-    sub: string
-}
-
 export function ensureAuthenticated(request: Request, response: Response, next: NextFunction) {
 
     const header = request.headers.authorization
@@ -18,9 +13,17 @@ export function ensureAuthenticated(request: Request, response: Response, next: 
     try {
         const [bearer, token] = header.split(" ")
 
-        const { role, sub: user_id } = verify(token, authConfig.jwt.secret) as TokenPlayload
+        if (bearer !== "Bearer" || !token) {
+            throw new appError("Token inválido", 401)
+        }
 
-        request.user = { id: user_id, role }
+        const payload = verify(token, authConfig.jwt.secret)
+
+        if (typeof payload === "string" || !payload.sub) {
+            throw new appError("Token inválido", 401);
+        }
+
+        request.user = { id: payload.sub }
 
         return next()
 

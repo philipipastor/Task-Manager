@@ -1,3 +1,4 @@
+import { useWorkspace } from "../context/WorkspaceContext";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +24,7 @@ type NewTeamProps = {
 };
 
 export function NewTeam({ onCancel, onCreated }: NewTeamProps) {
+    const { workspace } = useWorkspace()
     const [error, setError] = useState("");
     const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema),
@@ -35,7 +37,7 @@ export function NewTeam({ onCancel, onCreated }: NewTeamProps) {
     async function createTeam(data: FormData) {
         setError("");
         try {
-            await api.post("/teams", data);
+            await api.post("/teams", { ...data, workSpaceId: workspace!.id });
 
             await onCreated();
         } catch (error) {

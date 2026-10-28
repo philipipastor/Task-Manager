@@ -8,16 +8,21 @@ describe("teamsController", () => {
     let team_id: string
     let token: string
     let user_id: string
+    let workSpaceId: string
 
     const email = `test-${randomUUID()}@example.com`
 
     afterAll(async () => {
-        if (team_id && user_id) {
-            await prisma.teams.deleteMany({ where: { id: team_id } })
-            await prisma.user.deleteMany({ where: { id: user_id } })
+        try {
+            if (team_id) await prisma.teams.deleteMany({ where: { id: team_id } })
+            if (workSpaceId) {
+                await prisma.workSpaceMember.deleteMany({ where: { workSpaceId } })
+                await prisma.workSpace.delete({ where: { id: workSpaceId } })
+            }
+            if (user_id) await prisma.user.deleteMany({ where: { id: user_id } })
+        } finally {
+            await prisma.$disconnect()
         }
-
-        await prisma.$disconnect()
     })
 
     beforeAll(async () => {
@@ -30,8 +35,6 @@ describe("teamsController", () => {
         expect(register.status).toBe(201)
         user_id = register.body.id
 
-        await prisma.user.update({ where: { id: user_id }, data: { role: "Admin" } })
-
         const session = await request(app).post("/session").send({
             email,
             password: "password123"
@@ -40,6 +43,12 @@ describe("teamsController", () => {
         expect(session.status).toBe(200)
 
         token = session.body.token
+
+        const workspace = await request(app).post("/workspace")
+            .set("Authorization", `Bearer ${token}`)
+            .send({ name: "Espaço de equipes" })
+        expect(workspace.status).toBe(201)
+        workSpaceId = workspace.body.id
     })
 
     it("testa criação da equipe", async () => {
@@ -47,7 +56,8 @@ describe("teamsController", () => {
             .set("Authorization", `Bearer ${token}`)
             .send({
                 name: "example",
-                descrition: "testando a description"
+                description: "testando a description",
+                workSpaceId
             })
 
         expect(response.status).toBe(201)
