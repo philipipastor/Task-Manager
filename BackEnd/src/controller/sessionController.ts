@@ -9,13 +9,13 @@ import { sign } from "jsonwebtoken";
 class SessionController {
     async create(request: Request, response: Response) {
         const bodySchema = z.object({
-            email: z.string().email(),
+            email: z.string().trim().email().toLowerCase(),
             password: z.string().min(5, "Senha deve conter no mínimo 5 caracteres")
         })
 
         const { email, password } = bodySchema.parse(request.body)
 
-        const user = await prisma.user.findFirst({ where: { email } })
+        const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } })
 
         if (!user) {
             throw new appError("E-mail ou senha inválidos", 401)

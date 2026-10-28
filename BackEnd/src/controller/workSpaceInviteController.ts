@@ -9,13 +9,36 @@ import { requireWorkSpaceMember } from "../utils/requireWorkSpaceMember"
 import { appError } from "@/utils/appError"
 
 class WorkSpaceInviteController {
+    async index(request: Request, response: Response) {
+        const { workSpaceId } = z.object({ workSpaceId: z.string().uuid() }).parse(request.params)
+        await requireWorkSpaceMember(request.user?.id, workSpaceId, true)
+        const invites = await prisma.workSpaceInvite.findMany({
+            where: { workSpaceId, acceptedAt: null, expiresAt: { gt: new Date() } },
+            select: { id: true, email: true, createdAt: true, expiresAt: true },
+            orderBy: { createdAt: "desc" }
+        })
+        return response.json(invites)
+    }
+
+    async remove(request: Request, response: Response) {
+        const { workSpaceId, inviteId } = z.object({
+            workSpaceId: z.string().uuid(), inviteId: z.string().uuid()
+        }).parse(request.params)
+        await requireWorkSpaceMember(request.user?.id, workSpaceId, true)
+        const result = await prisma.workSpaceInvite.deleteMany({
+            where: { id: inviteId, workSpaceId, acceptedAt: null }
+        })
+        if (!result.count) throw new appError("Convite não encontrado ou já aceito", 404)
+        return response.status(204).send()
+    }
+
     async create(request: Request, response: Response) {
         const paramsSchema = z.object({
             workSpaceId: z.string().uuid()
         })
 
         const bodySchema = z.object({
-            email: z.string().email()
+            email: z.string().trim().email().toLowerCase()
         })
 
         const { workSpaceId } = paramsSchema.parse(request.params)
@@ -25,7 +48,7 @@ class WorkSpaceInviteController {
         await requireWorkSpaceMember(request.user?.id, workSpaceId, true)
 
         const emailExist = await prisma.workSpaceMember.findFirst({
-            where: { workSpaceId, user: { email } }
+            where: { workSpaceId, user: { email: { equals: email, mode: "insensitive" } } }
         })
 
         if (emailExist) {
@@ -92,7 +115,7 @@ class WorkSpaceInviteController {
                 throw new appError("Usuário não encontrado", 401)
             }
 
-            if (user.email !== invite.email) {
+            if (user.email.trim().toLowerCase() !== invite.email.trim().toLowerCase()) {
                 throw new appError("Entre com a conta que recebeu o convite", 403)
             }
 
