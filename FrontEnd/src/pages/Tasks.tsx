@@ -1,3 +1,4 @@
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useState, useEffect } from "react"
 import { useSearchParams, useNavigate } from "react-router"
 
@@ -13,6 +14,7 @@ import iconMais from "../assets/mais.png"
 import { api } from "../services/api"
 
 export function TaskList() {
+    const { workspace } = useWorkspace()
     const navigate = useNavigate()
 
     const [taskCount, setTaskCount] = useState(0)
@@ -29,7 +31,7 @@ export function TaskList() {
             setError("")
             try {
                 const response = await api.get<Task[]>("/tasks", {
-                    params: { status: searchParams.get("status") || undefined }
+                    params: { workSpaceId: workspace!.id, status: searchParams.get("status") || undefined }
                 })
                 if (!cancelled) {
                     setTasks(response.data)
@@ -43,13 +45,13 @@ export function TaskList() {
         }
         fetchTasks()
         return () => { cancelled = true }
-    }, [searchParams])
+    }, [searchParams, workspace?.id])
 
     return (
         <main className="min-h-svh bg-page px-4 py-8 sm:px-8">
             <section className="mx-auto w-full max-w-5xl">
                 <div className="relative sm:pr-48 [&>div]:mt-6 sm:[&>div]:absolute sm:[&>div]:right-0 sm:[&>div]:top-8 sm:[&>div]:mt-0 [&_button]:h-11">
-                    <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted">Meu espaço</p>
+                    <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted">{workspace?.name}</p>
 
                     <h1 id="task-title" className="text-2xl font-semibold tracking-tight text-content">Minhas tarefas</h1>
 

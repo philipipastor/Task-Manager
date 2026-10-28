@@ -15,6 +15,8 @@ export function AuthRoutes() {
             <Route path="/newTask" element={<Navigate to="/login" replace />} />
             <Route path="/team" element={<Navigate to="/login" replace />} />
 
+            <Route path="/workspaces" element={<Navigate to="/login" replace />} />
+            <Route path="/people" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />
         </Routes>
     )

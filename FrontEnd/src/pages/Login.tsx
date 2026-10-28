@@ -15,7 +15,7 @@ import type { User } from "../types/user"
 
 const schema = z.object({
     email: z.string().trim().email("Insira um e-mail válido"),
-    password: z.string().min(6, "A senha deve conter no mínimo 6 caracteres")
+    password: z.string().min(5, "A senha deve conter no mínimo 5 caracteres")
 })
 
 type LoginData = z.infer<typeof schema>
@@ -39,7 +39,11 @@ export function Login() {
         try {
             const response = await api.post<{ dataUser: User; token: string }>("/session", data)
             auth.signIn({ user: response.data.dataUser, token: response.data.token })
-            navigate("/tasks", { replace: true })
+            const pendingInvite = sessionStorage.getItem("@TaskManager:invite")
+            const destination = pendingInvite && /^[a-f0-9]{64}$/.test(pendingInvite)
+                ? `/invite?token=${pendingInvite}`
+                : "/tasks"
+            navigate(destination, { replace: true })
 
         } catch (error) {
             console.log(error)

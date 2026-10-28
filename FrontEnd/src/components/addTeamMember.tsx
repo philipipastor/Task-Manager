@@ -1,3 +1,4 @@
+import { useWorkspace } from "../context/WorkspaceContext";
 
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -25,21 +26,16 @@ const existingUserSchema = z.object({
   user_id: z.string().uuid("Selecione um usuário")
 });
 
-const newUserSchema = z.object({
-  name: z.string().trim().min(1, "Informe o nome"),
-  email: z.string().email("Informe um e-mail válido"),
-  password: z.string().min(5, "A senha deve ter no mínimo 5 caracteres")
-});
-
 type ExistingUserForm = z.infer<typeof existingUserSchema>;
-type NewUserForm = z.infer<typeof newUserSchema>;
+
 
 export function AddTeamMember({
   team,
   onCancel,
   onAdded
 }: AddTeamMemberProps) {
-  const [tab, setTab] = useState<"existing" | "new">("existing");
+  const { workspace } = useWorkspace()
+
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState("");
@@ -51,22 +47,13 @@ export function AddTeamMember({
     }
   });
 
-  const newUserForm = useForm<NewUserForm>({
-    resolver: zodResolver(newUserSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: ""
-    }
-  });
-
-  const isSubmitting = existingForm.formState.isSubmitting || newUserForm.formState.isSubmitting;
+  const isSubmitting = existingForm.formState.isSubmitting;
 
   useEffect(() => {
     let cancelled = false;
     async function fetchUsers() {
       try {
-        const response = await api.get<User[]>("/users");
+        const response = await api.get<User[]>("/users", { params: { workSpaceId: workspace!.id } });
         if (!cancelled) setUsers(response.data);
       } catch (error) {
         console.log(error);
@@ -96,26 +83,6 @@ export function AddTeamMember({
     }
   }
 
-  async function addNewUser(data: NewUserForm) {
-    setError("");
-
-    try {
-      const response = await api.post<User>("/users", data);
-
-      await api.post("/members", {
-        user_id: response.data.id,
-        team_id: team.id
-      });
-
-      await onAdded();
-    } catch (error) {
-      console.log(error);
-      setError(
-        "Não foi possível concluir o cadastro e o vínculo do usuário."
-      );
-    }
-  }
-
   return (
     <section className="min-w-0 flex-1 p-5 sm:p-7">
       <button
@@ -138,51 +105,15 @@ export function AddTeamMember({
         </span>
       </p>
 
-      <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label="Tipo de cadastro">
-        <button
-          type="button"
-          disabled={isSubmitting}
-          aria-pressed={tab === "existing"}
-          onClick={() => {
-            setTab("existing");
-            setError("");
-          }}
-          className={`cursor-pointer rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-            tab === "existing"
-              ? "border-brand bg-brand-light text-brand"
-              : "border-line text-content hover:bg-page"
-          }`}
-        >
-          Usuário existente
-        </button>
-
-        <button
-          type="button"
-          disabled={isSubmitting}
-          aria-pressed={tab === "new"}
-          onClick={() => {
-            setTab("new");
-            setError("");
-          }}
-          className={`cursor-pointer rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-            tab === "new"
-              ? "border-brand bg-brand-light text-brand"
-              : "border-line text-content hover:bg-page"
-          }`}
-        >
-          Novo usuário
-        </button>
-      </div>
-
       {error && (
         <p role="alert" className="mt-4 text-sm text-danger">
           {error}
         </p>
       )}
 
-      {loadingUsers && tab === "existing" && <p role="status" className="mt-4 text-sm text-muted">Carregando usuários...</p>}
+      {loadingUsers && <p role="status" className="mt-4 text-sm text-muted">Carregando usuários...</p>}
 
-      {tab === "existing" ? (
+
         <form
           onSubmit={existingForm.handleSubmit(addExistingUser)}
           noValidate
@@ -224,7 +155,7 @@ export function AddTeamMember({
             )}
 
             <p className="mt-5 text-xs text-muted">
-              Selecione uma pessoa já cadastrada no Task Manager.
+              Selecione uma pessoa que já pertence ao espaço. Para novas pessoas, envie um convite pela tela Pessoas e convites.
             </p>
           </div>
 
@@ -249,110 +180,6 @@ export function AddTeamMember({
             </Button>
           </div>
         </form>
-      ) : (
-        <form
-          onSubmit={newUserForm.handleSubmit(addNewUser)}
-          noValidate
-          className="mt-6 max-w-xl space-y-5"
-        >
-          <div>
-            <label
-              htmlFor="new-user-name"
-              className="mb-2 block text-sm font-medium text-content"
-            >
-              Nome completo
-            </label>
-
-            <input
-              id="new-user-name"
-              type="text"
-              placeholder="Ex.: Marina Souza"
-              readOnly={isSubmitting}
-              {...newUserForm.register("name")}
-              className="h-11 w-full rounded-lg border border-line bg-surface px-3 text-base text-content sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            />
-
-            {newUserForm.formState.errors.name && (
-              <p className="mt-1 text-xs text-danger">
-                {newUserForm.formState.errors.name.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-user-email"
-              className="mb-2 block text-sm font-medium text-content"
-            >
-              E-mail
-            </label>
-
-            <input
-              id="new-user-email"
-              type="email"
-              placeholder="marina@exemplo.com"
-              readOnly={isSubmitting}
-              {...newUserForm.register("email")}
-              className="h-11 w-full rounded-lg border border-line bg-surface px-3 text-base text-content sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            />
-
-            {newUserForm.formState.errors.email && (
-              <p className="mt-1 text-xs text-danger">
-                {newUserForm.formState.errors.email.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-user-password"
-              className="mb-2 block text-sm font-medium text-content"
-            >
-              Senha inicial
-            </label>
-
-            <input
-              id="new-user-password"
-              type="password"
-              placeholder="No mínimo 5 caracteres"
-              readOnly={isSubmitting}
-              {...newUserForm.register("password")}
-              className="h-11 w-full rounded-lg border border-line bg-surface px-3 text-base text-content sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            />
-
-            {newUserForm.formState.errors.password && (
-              <p className="mt-1 text-xs text-danger">
-                {newUserForm.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-
-          <p className="text-xs text-muted">
-            O novo usuário será vinculado à equipe selecionada.
-          </p>
-
-          <div className="flex flex-wrap justify-end gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isSubmitting}
-              className="h-11 cursor-pointer rounded-lg border border-line px-4 text-sm font-medium text-content hover:bg-page"
-            >
-              Cancelar
-            </button>
-
-            <Button
-              type="submit"
-              isLoading={newUserForm.formState.isSubmitting}
-              disabled={isSubmitting}
-            >
-              {newUserForm.formState.isSubmitting
-                ? "Criando..."
-                : "Criar e vincular"}
-            </Button>
-          </div>
-        </form>
-      )}
     </section>
   );
 }

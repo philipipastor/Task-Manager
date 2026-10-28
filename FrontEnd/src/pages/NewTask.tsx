@@ -1,3 +1,4 @@
+import { useWorkspace } from "../context/WorkspaceContext";
 import { Input } from "../components/input";
 import { Button } from "../components/button";
 import { Select } from "../components/select";
@@ -32,7 +33,7 @@ export type TaskData = z.infer<typeof schema>
 
 export function NewTask() {
     const { user } = useAuth()
-    const isAdmin = user?.role === "Admin"
+    const { workspace, isAdmin } = useWorkspace()
 
     const navigate = useNavigate()
 
@@ -74,6 +75,7 @@ export function NewTask() {
         try {
             await api.post<TaskData>("/tasks", {
                 ...data,
+                workSpaceId: workspace!.id,
                 assigned_to: isAdmin ? data.assigned_to : user?.id
             })
             navigate("/tasks")
