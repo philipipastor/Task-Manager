@@ -4,10 +4,8 @@ Aplicação Full Stack para gerenciamento de tarefas, equipes e espaços de trab
 
 ## Demonstração
 
-- **Front-end:** URL de deploy não identificada nos arquivos atuais do repositório. Adicione aqui o endereço público do Vercel assim que confirmar o link.
+- **Front-end:** [https://task-manager-six-olive-82.vercel.app/](https://task-manager-six-olive-82.vercel.app/)
 - **Back-end / API:** [https://task-manager-gpxp.onrender.com](https://task-manager-gpxp.onrender.com)
-
-> A URL da API está configurada como base de produção no Front-end. O endereço público do Front-end não está registrado no repositório, então preferi não inserir um link presumido.
 
 ## Funcionalidades
 
