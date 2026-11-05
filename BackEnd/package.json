@@ -7,7 +7,7 @@
     "test:dev": "set NODE_OPTIONS=--experimental-vm-modules && jest --watchAll --runInBand",
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
-    "build": "tsup src/server.ts --out-dir build",
+    "build": "prisma generate && tsup src/server.ts --out-dir build",
     "start": "node build/server.js"
   },
   "keywords": [],
