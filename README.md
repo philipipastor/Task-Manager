@@ -4,8 +4,7 @@ Aplicação Full Stack para gerenciamento de tarefas, equipes e espaços de trab
 
 ## Demonstração
 
-- **Front-end:** [https://task-manager-six-olive-82.vercel.app/](https://task-manager-six-olive-82.vercel.app/)
-- **Back-end / API:** [https://task-manager-gpxp.onrender.com](https://task-manager-gpxp.onrender.com)
+- **Aplicação:** [Acessar Task-Manager](https://task-manager-six-olive-82.vercel.app/)
 
 ## Funcionalidades
 
