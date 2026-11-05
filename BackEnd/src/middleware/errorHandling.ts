@@ -11,5 +11,7 @@ export function errorHandling(error: any, request: Request, response: Response, 
         return response.status(400).json({message: "Validation error", issues: error.format()})
     }
 
-    return response.status(500).json({message: error.message || "internal Server Error"})
+    console.error(error)
+
+    return response.status(500).json({message: "Erro interno do servidor"})
 }
